@@ -49,8 +49,7 @@ impl CPU {
     fn jrcc(&mut self, flag: Flag, condition: bool, offset: u8) {
         let flag = self.registers.get_flag(flag);
         if flag == condition {
-            println!("{:#x} {:#x} {:#x}", self.registers.pc, offset, self.registers.pc + (offset as u16));
-            self.registers.pc += offset as u16;
+            self.registers.pc = self.registers.pc.wrapping_add_signed(offset as i8 as i16);
         }
     }
 
