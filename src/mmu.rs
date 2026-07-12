@@ -1,12 +1,103 @@
 #[derive(Debug)]
+struct Cartridge {
+    rom: u8, // TODO
+    ram: u8, // TODO
+}
+
+const VRAM_SIZE: usize = 8 * 1024;
+const WRAM_SIZE: usize = 8 * 1024;
+const OAM_SIZE: usize = 160;
+const IO_SIZE: usize = 128;
+const HRAM_SIZE: usize = 126;
+
+#[derive(Debug)]
 pub struct MMU {
-    bios_disabled: bool,
-    bios: [u8; 256],         // 256 bytes: 0x0000 -> 0x00FF
-    wram: [u8; 8 * 1024],    // 8 KB: 0xC000 -> 0xDFFF
-    vram: [u8; 8 * 1024],    // 8 KB: 0x8000 -> 0x9FFF
-    internal_ram: [u8; 126], // 126 bytes: 0xFF80 -> 0xFFFE
-    cartridge: u8,           // 0x0100 -> 
-    cartridge_size: u16,
+    cartridge: Cartridge,  // 0x0000 - 0x7FFF (Cartridge ROM)
+    vram: [u8; VRAM_SIZE], // 0x8000 - 0x9FFF
+    // 0xA000 - 0xBFFF (Cartridge RAM)
+    wram: [u8; WRAM_SIZE], // 0xC000 - 0xDFFF
+    // 0xE000 - 0xFDFF (Echo RAM)
+    oam: [u8; OAM_SIZE],   // 0xFE00 - 0xFE9F
+    io: [u8; IO_SIZE],     // 0xFF00 - 0xFF7F
+    hram: [u8; HRAM_SIZE], // 0xFF80 - 0xFFFE
+    ie: u8,                // 0xFFFF
+}
+
+impl MMU {
+    pub fn new() -> Self {
+        Self {
+            cartridge: Cartridge { rom: 0, ram: 0 },
+            vram: [0; VRAM_SIZE],
+            wram: [0; WRAM_SIZE],
+            oam: [0; OAM_SIZE],
+            io: [0; IO_SIZE],
+            hram: [0; HRAM_SIZE],
+            ie: 0,
+        }
+    }
+
+    pub fn read_byte(&self, address: u16) -> u8 {
+        if address >= 0x0000 && address <= 0x7FFF {
+            if self.io[0xFF50 - 0xFF00] == 0 {
+                return BOOTSTRAP_ROM[address as usize];
+            } else {
+                return self.cartridge.rom;
+            }
+        } else if address >= 0x8000 && address <= 0x9FFF {
+            return self.vram[(address - 0x8000) as usize];
+        } else if address >= 0xA000 && address <= 0xBFFF {
+            return self.cartridge.ram;
+        } else if address >= 0xC000 && address <= 0xDFFF {
+            return self.wram[(address - 0xC000) as usize];
+        } else if address >= 0xE000 && address <= 0xFDFF {
+            return self.wram[(address - 0xE000) as usize]; // TODO check echo ram
+        } else if address >= 0xFE00 && address <= 0xFE9F {
+            return self.oam[(address - 0xFE00) as usize];
+        } else if address >= 0xFF00 && address <= 0xFF7F {
+            return self.io[(address - 0xFF00) as usize];
+        } else if address >= 0xFF80 && address <= 0xFFFE {
+            return self.hram[(address - 0xFF80) as usize];
+        } else if address == 0xFFFF {
+            return self.ie;
+        } else {
+            panic!("invalid address: {:#x}", address)
+        }
+    }
+
+    pub fn read_word(&self, address: u16) -> u16 {
+        let hi = self.read_byte(address) as u16;
+        let lo = self.read_byte(address + 1) as u16;
+        (hi << 8) | lo
+    }
+
+    pub fn write_byte(&mut self, address: u16, value: u8) {
+        if address >= 0x0000 && address <= 0x7FFF {
+            panic!("writing to rom: {:#x}", address);
+        } else if address >= 0x8000 && address <= 0x9FFF {
+            return self.vram[(address - 0x8000) as usize] = value;
+        } else if address >= 0xA000 && address <= 0xBFFF {
+            return self.cartridge.ram = value;
+        } else if address >= 0xC000 && address <= 0xDFFF {
+            return self.wram[(address - 0xC000) as usize] = value;
+        } else if address >= 0xE000 && address <= 0xFDFF {
+            return self.wram[(address - 0xE000) as usize] = value; // TODO check echo ram
+        } else if address >= 0xFE00 && address <= 0xFE9F {
+            return self.oam[(address - 0xFE00) as usize] = value;
+        } else if address >= 0xFF00 && address <= 0xFF7F {
+            return self.io[(address - 0xFF00) as usize] = value;
+        } else if address >= 0xFF80 && address <= 0xFFFE {
+            return self.hram[(address - 0xFF80) as usize] = value;
+        } else if address == 0xFFFF {
+            return self.ie = value;
+        } else {
+            panic!("invalid address: {:#x}", address)
+        }
+    }
+
+    pub fn write_word(&mut self, address: u16, value: u16) {
+        self.write_byte(address, (value >> 8) as u8);
+        self.write_byte(address + 1, value as u8);
+    }
 }
 
 const BOOTSTRAP_ROM: [u8; 256] = [
@@ -27,56 +118,3 @@ const BOOTSTRAP_ROM: [u8; 256] = [
     0x21, 0x04, 0x01, 0x11, 0xA8, 0x00, 0x1A, 0x13, 0xBE, 0x20, 0xFE, 0x23, 0x7D, 0xFE, 0x34, 0x20,
     0xF5, 0x06, 0x19, 0x78, 0x86, 0x23, 0x05, 0x20, 0xFB, 0x86, 0x20, 0xFE, 0x3E, 0x01, 0xE0, 0x50,
 ];
-
-impl MMU {
-    pub fn new() -> Self {
-        Self {
-            bios_disabled: false,
-            bios: BOOTSTRAP_ROM,
-            wram: [0; 8 * 1024],
-            vram: [0; 8 * 1024],
-            internal_ram: [0; 126],
-            cartridge: 0,
-            cartridge_size: 0,
-        }
-    }
-
-    pub fn read_byte(&self, address: u16) -> u8 {
-        if address < 0x0100 {
-            return self.bios[address as usize];
-        } else if address >= 0x8000 && address <= 0x9FFF {
-            return self.vram[(address - 0x8000) as usize];
-        } else if address >= 0xC000 && address <= 0xDFFF {
-            return self.wram[(address - 0xC000) as usize];
-        } else if address >= 0xFF80 && address <= 0xFFFE {
-            return self.internal_ram[(address - 0xFF80) as usize];
-        } else {
-            panic!("invalid address: {:#x}", address)
-        }
-    }
-
-    pub fn read_word(&self, address: u16) -> u16 {
-        let hi = self.read_byte(address) as u16;
-        let lo = self.read_byte(address + 1) as u16;
-        (hi << 8) | lo
-    }
-
-    pub fn write_byte(&mut self, address: u16, value: u8) {
-        if address < 0x0100 {
-            self.bios[address as usize] = value;
-        } else if address >= 0x8000 && address <= 0x9FFF {
-            self.vram[(address - 0x8000) as usize] = value;
-        } else if address >= 0xC000 && address <= 0xDFFF {
-            self.wram[(address - 0xC000) as usize] = value;
-        } else if address >= 0xFF80 && address <= 0xFFFE {
-            self.internal_ram[(address - 0xFF80) as usize] = value;
-        } else {
-            panic!("invalid address: {:#x}", address)
-        }
-    }
-
-    pub fn write_word(&mut self, address: u16, value: u16) {
-        self.write_byte(address, (value >> 8) as u8);
-        self.write_byte(address + 1, value as u8);
-    }
-}
