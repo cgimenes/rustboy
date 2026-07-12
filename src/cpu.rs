@@ -49,6 +49,7 @@ impl CPU {
     fn jrcc(&mut self, flag: Flag, condition: bool, offset: u8) {
         let flag = self.registers.get_flag(flag);
         if flag == condition {
+            println!("{:#x} {:#x} {:#x}", self.registers.pc, offset, self.registers.pc + (offset as u16));
             self.registers.pc += offset as u16;
         }
     }
@@ -56,6 +57,9 @@ impl CPU {
     pub fn step(&mut self) {
         let op = self.fetch_byte();
 
+        // TODO 0xF8 is signed!
+        // TODO 0xE8 is signed!
+        // TODO 0x18 is signed!
         match op {
             0x06 => self.registers.b = self.fetch_byte(),
             0x0E => self.registers.c = self.fetch_byte(),

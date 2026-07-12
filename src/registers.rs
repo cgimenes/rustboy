@@ -148,11 +148,7 @@ impl Registers {
         }
 
         // Handles overflows
-        if value == 0xff {
-            value = 0;
-        } else {
-            value += 1;
-        }
+        value = value.wrapping_add(1);
         match register {
             ByteRegister::A => self.a = value,
             ByteRegister::F => self.f = value,
@@ -188,11 +184,7 @@ impl Registers {
         }
 
         // Handles overflows
-        if value == 0xffff {
-            value = 0;
-        } else {
-            value += 1;
-        }
+        value = value.wrapping_add(1);
         match register {
             WordRegister::AF => self.set_af(value),
             WordRegister::BC => self.set_bc(value),

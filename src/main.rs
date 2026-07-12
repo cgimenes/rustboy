@@ -80,7 +80,6 @@ fn draw_debug(mut d: RaylibDrawHandle, screen_width: i32, screen_height: i32, st
     }
 
     let cpu = &state.cpu;
-    d.draw_text("Hello, world!", 12, 12, 20, Color::BLACK);
 
     d.draw_text(
         format!("A: {:#x}", cpu.registers.a).as_str(),
