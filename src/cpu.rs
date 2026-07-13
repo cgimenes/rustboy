@@ -60,6 +60,7 @@ impl CPU {
         // TODO 0xE8 is signed!
         // TODO 0x18 is signed!
         match op {
+            0x17 => self.registers.a = self.rotate(self.registers.a, false),
             0x06 => self.registers.b = self.fetch_byte(),
             0x0E => self.registers.c = self.fetch_byte(),
             0x16 => self.registers.d = self.fetch_byte(),
@@ -133,6 +134,22 @@ impl CPU {
             0xE2 => self
                 .mmu
                 .write_word(0xff00 + self.registers.c as u16, self.registers.a as u16),
+            0xC1 => {
+                let data = self.pop_w();
+                self.registers.set_bc(data);
+            }
+            0xD1 => {
+                let data = self.pop_w();
+                self.registers.set_de(data);
+            }
+            0xE1 => {
+                let data = self.pop_w();
+                self.registers.set_hl(data);
+            }
+            0xF1 => {
+                let data = self.pop_w();
+                self.registers.set_af(data);
+            }
             _ => todo!("{:#x}", op),
         }
     }
@@ -141,18 +158,18 @@ impl CPU {
         let op = self.fetch_byte();
 
         match op {
-            0x10 => self.registers.b = self.rotate(self.registers.b),
-            0x11 => self.registers.c = self.rotate(self.registers.c),
-            0x12 => self.registers.d = self.rotate(self.registers.d),
-            0x13 => self.registers.e = self.rotate(self.registers.e),
-            0x14 => self.registers.h = self.rotate(self.registers.h),
-            0x15 => self.registers.l = self.rotate(self.registers.l),
+            0x10 => self.registers.b = self.rotate(self.registers.b, true),
+            0x11 => self.registers.c = self.rotate(self.registers.c, true),
+            0x12 => self.registers.d = self.rotate(self.registers.d, true),
+            0x13 => self.registers.e = self.rotate(self.registers.e, true),
+            0x14 => self.registers.h = self.rotate(self.registers.h, true),
+            0x15 => self.registers.l = self.rotate(self.registers.l, true),
             0x16 => {
                 let mut data = self.mmu.read_byte(self.registers.hl());
-                data = self.rotate(data);
+                data = self.rotate(data, true);
                 self.mmu.write_byte(self.registers.hl(), data);
             }
-            0x17 => self.registers.a = self.rotate(self.registers.a),
+            0x17 => self.registers.a = self.rotate(self.registers.a, true),
             0x40 => self.bit(self.registers.b, 0),
             0x41 => self.bit(self.registers.c, 0),
             0x42 => self.bit(self.registers.d, 0),
@@ -239,7 +256,7 @@ impl CPU {
         self.registers.set_flag(Flag::H);
     }
 
-    fn rotate(&mut self, value: u8) -> u8 {
+    fn rotate(&mut self, value: u8, update_z: bool) -> u8 {
         let b7_set = (value & (1 << 7)) > 0;
 
         let mut result = value << 1;
@@ -247,7 +264,7 @@ impl CPU {
             result += 1;
         }
 
-        if result == 0 {
+        if update_z && result == 0 {
             self.registers.set_flag(Flag::Z);
         } else {
             self.registers.clear_flag(Flag::Z);
@@ -261,5 +278,17 @@ impl CPU {
         }
 
         return result;
+    }
+
+    fn pop_b(&mut self) -> u8 {
+        let value = self.mmu.read_byte(self.registers.sp);
+        self.registers.inc_w(WordRegister::SP);
+        return value;
+    }
+
+    fn pop_w(&mut self) -> u16 {
+        let lo = self.pop_b() as u16;
+        let hi = self.pop_b() as u16;
+        return (hi << 8) | lo;
     }
 }
