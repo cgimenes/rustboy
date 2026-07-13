@@ -141,6 +141,18 @@ impl CPU {
         let op = self.fetch_byte();
 
         match op {
+            0x10 => self.registers.b = self.rotate(self.registers.b),
+            0x11 => self.registers.c = self.rotate(self.registers.c),
+            0x12 => self.registers.d = self.rotate(self.registers.d),
+            0x13 => self.registers.e = self.rotate(self.registers.e),
+            0x14 => self.registers.h = self.rotate(self.registers.h),
+            0x15 => self.registers.l = self.rotate(self.registers.l),
+            0x16 => {
+                let mut data = self.mmu.read_byte(self.registers.hl());
+                data = self.rotate(data);
+                self.mmu.write_byte(self.registers.hl(), data);
+            }
+            0x17 => self.registers.a = self.rotate(self.registers.a),
             0x40 => self.bit(self.registers.b, 0),
             0x41 => self.bit(self.registers.c, 0),
             0x42 => self.bit(self.registers.d, 0),
@@ -225,5 +237,29 @@ impl CPU {
         }
         self.registers.clear_flag(Flag::N);
         self.registers.set_flag(Flag::H);
+    }
+
+    fn rotate(&mut self, value: u8) -> u8 {
+        let b7_set = (value & (1 << 7)) > 0;
+
+        let mut result = value << 1;
+        if b7_set {
+            result += 1;
+        }
+
+        if result == 0 {
+            self.registers.set_flag(Flag::Z);
+        } else {
+            self.registers.clear_flag(Flag::Z);
+        }
+        self.registers.clear_flag(Flag::N);
+        self.registers.clear_flag(Flag::H);
+        if b7_set {
+            self.registers.set_flag(Flag::C);
+        } else {
+            self.registers.clear_flag(Flag::C);
+        }
+
+        return result;
     }
 }
