@@ -160,14 +160,14 @@ impl Registers {
             ByteRegister::L => self.l = value,
         };
 
-        // TODO is an else here necessary?
         if value == 0 {
             self.set_flag(Flag::Z);
+        } else {
+            self.clear_flag(Flag::Z);
         }
         self.clear_flag(Flag::N);
     }
 
-    // TODO improve this
     pub fn inc_w(&mut self, register: WordRegister) {
         let mut value = match register {
             WordRegister::AF => self.af(),
@@ -177,11 +177,6 @@ impl Registers {
             WordRegister::SP => self.sp,
             WordRegister::PC => self.pc,
         };
-
-        // Set if carry from bit 3
-        if value & 0x0f == 0x0f {
-            self.set_flag(Flag::H);
-        }
 
         // Handles overflows
         value = value.wrapping_add(1);
@@ -193,12 +188,6 @@ impl Registers {
             WordRegister::SP => self.sp = value,
             WordRegister::PC => self.pc = value,
         };
-
-        // TODO is an else here necessary?
-        if value == 0 {
-            self.set_flag(Flag::Z);
-        }
-        self.clear_flag(Flag::N);
     }
 
     pub fn dec_b(&mut self, register: ByteRegister) {
@@ -213,9 +202,12 @@ impl Registers {
             ByteRegister::L => self.l,
         };
 
-        // TODO check if I need to change Flag::H
-        // TODO what if it's already zero?
-        value -= 1;
+        // Set if carry from bit 3
+        if value & 0x0f == 0x0f {
+            self.set_flag(Flag::H);
+        }
+
+        value = value.wrapping_sub(1);
         match register {
             ByteRegister::A => self.a = value,
             ByteRegister::F => self.f = value,
@@ -232,7 +224,7 @@ impl Registers {
         } else {
             self.clear_flag(Flag::Z);
         }
-        self.clear_flag(Flag::N);
+        self.set_flag(Flag::N);
     }
 
     pub fn dec_w(&mut self, register: WordRegister) {
@@ -245,9 +237,7 @@ impl Registers {
             WordRegister::PC => self.pc,
         };
 
-        // TODO check if I need to change Flag::H
-        // TODO what if it's already zero?
-        value -= 1;
+        value = value.wrapping_sub(1);
         match register {
             WordRegister::AF => self.set_af(value),
             WordRegister::BC => self.set_bc(value),
@@ -256,12 +246,5 @@ impl Registers {
             WordRegister::SP => self.sp = value,
             WordRegister::PC => self.pc = value,
         };
-
-        if value == 0 {
-            self.set_flag(Flag::Z);
-        } else {
-            self.clear_flag(Flag::Z);
-        }
-        self.clear_flag(Flag::N);
     }
 }
