@@ -100,7 +100,10 @@ impl CPU {
                 self.mmu.write_byte(self.registers.hl(), self.registers.a);
                 self.registers.dec_w(WordRegister::HL);
             }
-            0x1A => self.mmu.write_byte(self.registers.de(), self.registers.a),
+            0x1A => {
+                let value = self.mmu.read_byte(self.registers.de());
+                self.registers.a = value;
+            }
             0x4F => self
                 .mmu
                 .write_byte(self.registers.c as u16, self.registers.a),

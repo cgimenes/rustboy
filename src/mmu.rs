@@ -37,12 +37,11 @@ impl MMU {
     }
 
     pub fn read_byte(&self, address: u16) -> u8 {
-        if address >= 0x0000 && address <= 0x7FFF {
-            if self.io[0xFF50 - 0xFF00] == 0 {
-                return BOOTSTRAP_ROM[address as usize];
-            } else {
-                return self.cartridge.rom;
-            }
+        let bootrom_enabled = self.io[0xFF50 - 0xFF00] == 0;
+        if address <= 0x00FF && bootrom_enabled {
+            return BOOTSTRAP_ROM[address as usize];
+        } else if address <= 0x7FFF {
+            return self.cartridge.rom;
         } else if address >= 0x8000 && address <= 0x9FFF {
             return self.vram[(address - 0x8000) as usize];
         } else if address >= 0xA000 && address <= 0xBFFF {
@@ -71,7 +70,7 @@ impl MMU {
     }
 
     pub fn write_byte(&mut self, address: u16, value: u8) {
-        if address >= 0x0000 && address <= 0x7FFF {
+        if address <= 0x7FFF {
             panic!("writing to rom: {:#x}", address);
         } else if address >= 0x8000 && address <= 0x9FFF {
             return self.vram[(address - 0x8000) as usize] = value;
