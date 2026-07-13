@@ -8,7 +8,19 @@ const VRAM_SIZE: usize = 8 * 1024;
 const WRAM_SIZE: usize = 8 * 1024;
 const OAM_SIZE: usize = 160;
 const IO_SIZE: usize = 128;
-const HRAM_SIZE: usize = 126;
+const HRAM_SIZE: usize = 127;
+
+const ROM_BANKN_START: u16 = 0x4000; // From cartridge, switchable bank via MBC (if any).
+const VRAM_START: u16 = 0x8000;
+const ERAM_START: u16 = 0xA000;
+const WRAM_BANK0_START: u16 = 0xC000;
+const WRAM_BANKN_START: u16 = 0xD000; // Only bank 1 in Non-CGB mode. Switchable bank 1~7 in CGB mode.
+const ECHO_START: u16 = 0xE000;
+const OAM_START: u16 = 0xFE00;
+const UNUSABLE_START: u16 = 0xFEA0;
+const IO_START: u16 = 0xFF00;
+const HRAM_START: u16 = 0xFF80;
+const IE: u16 = 0xFFFF;
 
 #[derive(Debug)]
 pub struct MMU {
@@ -37,26 +49,26 @@ impl MMU {
     }
 
     pub fn read_byte(&self, address: u16) -> u8 {
-        let bootrom_enabled = self.io[0xFF50 - 0xFF00] == 0;
-        if address <= 0x00FF && bootrom_enabled {
+        let bootrom_enabled = self.io[(0xFF50 - IO_START) as usize] == 0;
+        if bootrom_enabled && address <= 0x00FF {
             return BOOTSTRAP_ROM[address as usize];
-        } else if address <= 0x7FFF {
+        } else if address < VRAM_START {
             return self.cartridge.rom;
-        } else if address >= 0x8000 && address <= 0x9FFF {
-            return self.vram[(address - 0x8000) as usize];
-        } else if address >= 0xA000 && address <= 0xBFFF {
+        } else if address >= VRAM_START && address < ERAM_START {
+            return self.vram[(address - VRAM_START) as usize];
+        } else if address >= ERAM_START && address < WRAM_BANK0_START {
             return self.cartridge.ram;
-        } else if address >= 0xC000 && address <= 0xDFFF {
-            return self.wram[(address - 0xC000) as usize];
-        } else if address >= 0xE000 && address <= 0xFDFF {
-            return self.wram[(address - 0xE000) as usize]; // TODO check echo ram
-        } else if address >= 0xFE00 && address <= 0xFE9F {
-            return self.oam[(address - 0xFE00) as usize];
-        } else if address >= 0xFF00 && address <= 0xFF7F {
-            return self.io[(address - 0xFF00) as usize];
-        } else if address >= 0xFF80 && address <= 0xFFFE {
-            return self.hram[(address - 0xFF80) as usize];
-        } else if address == 0xFFFF {
+        } else if address >= WRAM_BANK0_START && address < ECHO_START {
+            return self.wram[(address - WRAM_BANK0_START) as usize];
+        } else if address >= ECHO_START && address < OAM_START {
+            return self.wram[(address - ECHO_START) as usize]; // TODO check echo ram
+        } else if address >= OAM_START && address < UNUSABLE_START {
+            return self.oam[(address - OAM_START) as usize];
+        } else if address >= IO_START && address < HRAM_START {
+            return self.io[(address - IO_START) as usize];
+        } else if address >= HRAM_START && address < IE {
+            return self.hram[(address - HRAM_START) as usize];
+        } else if address == IE {
             return self.ie;
         } else {
             panic!("invalid address: {:#x}", address)
@@ -70,23 +82,23 @@ impl MMU {
     }
 
     pub fn write_byte(&mut self, address: u16, value: u8) {
-        if address <= 0x7FFF {
+        if address < VRAM_START {
             panic!("writing to rom: {:#x}", address);
-        } else if address >= 0x8000 && address <= 0x9FFF {
-            return self.vram[(address - 0x8000) as usize] = value;
-        } else if address >= 0xA000 && address <= 0xBFFF {
+        } else if address >= VRAM_START && address < ERAM_START {
+            return self.vram[(address - VRAM_START) as usize] = value;
+        } else if address >= ERAM_START && address < WRAM_BANK0_START {
             return self.cartridge.ram = value;
-        } else if address >= 0xC000 && address <= 0xDFFF {
-            return self.wram[(address - 0xC000) as usize] = value;
-        } else if address >= 0xE000 && address <= 0xFDFF {
-            return self.wram[(address - 0xE000) as usize] = value; // TODO check echo ram
-        } else if address >= 0xFE00 && address <= 0xFE9F {
-            return self.oam[(address - 0xFE00) as usize] = value;
-        } else if address >= 0xFF00 && address <= 0xFF7F {
-            return self.io[(address - 0xFF00) as usize] = value;
-        } else if address >= 0xFF80 && address <= 0xFFFE {
-            return self.hram[(address - 0xFF80) as usize] = value;
-        } else if address == 0xFFFF {
+        } else if address >= WRAM_BANK0_START && address < ECHO_START {
+            return self.wram[(address - WRAM_BANK0_START) as usize] = value;
+        } else if address >= ECHO_START && address < OAM_START {
+            return self.wram[(address - ECHO_START) as usize] = value; // TODO check echo ram
+        } else if address >= OAM_START && address < UNUSABLE_START {
+            return self.oam[(address - OAM_START) as usize] = value;
+        } else if address >= IO_START && address < HRAM_START {
+            return self.io[(address - IO_START) as usize] = value;
+        } else if address >= HRAM_START && address < IE {
+            return self.hram[(address - HRAM_START) as usize] = value;
+        } else if address == IE {
             return self.ie = value;
         } else {
             panic!("invalid address: {:#x}", address)

@@ -104,9 +104,7 @@ impl CPU {
                 let value = self.mmu.read_byte(self.registers.de());
                 self.registers.a = value;
             }
-            0x4F => self
-                .mmu
-                .write_byte(self.registers.c as u16, self.registers.a),
+            0x4F => self.registers.c = self.registers.a,
             0x77 => self.mmu.write_byte(self.registers.hl(), self.registers.a),
             0x05 => self.registers.dec_b(ByteRegister::B),
             0x0B => self.registers.dec_w(WordRegister::BC),
@@ -117,7 +115,7 @@ impl CPU {
             0xC5 => self.push_w(self.registers.bc()),
             0xCD => {
                 let word = self.fetch_word();
-                self.call(word, self.registers.pc + 2)
+                self.call(word);
             }
             0xA8 => self.xor(self.registers.b),
             0xA9 => self.xor(self.registers.c),
@@ -199,20 +197,24 @@ impl CPU {
             0x7C => self.bit(self.registers.h, 7),
             0x7D => self.bit(self.registers.l, 7),
             0x7F => self.bit(self.registers.a, 7),
-            _ => todo!(),
+            _ => todo!("{:#x}", op),
         }
     }
 
-    fn call(&mut self, address: u16, value: u16) {
-        self.push_w(value);
+    fn call(&mut self, address: u16) {
+        self.push_w(self.registers.pc);
         self.registers.pc = address;
     }
 
     fn push_w(&mut self, value: u16) {
+        self.push_b((value >> 8) as u8);
+        self.push_b(value as u8);
+    }
+
+    fn push_b(&mut self, value: u8) {
         let sp = self.registers.sp;
-        self.mmu.write_word(sp, value);
         self.registers.dec_w(WordRegister::SP);
-        self.registers.dec_w(WordRegister::SP);
+        self.mmu.write_byte(sp, value);
     }
 
     fn bit(&mut self, reg: u8, bit: u8) {

@@ -44,7 +44,7 @@ fn main() {
         if state.restart {
             state = State::new();
         }
-        if state.cont && state.cpu.registers.pc >= 0x1f {
+        if state.cont && state.cpu.registers.pc >= 0x27 {
             state.cont = false;
         }
         if state.next || state.cont {
