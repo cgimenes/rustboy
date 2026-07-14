@@ -1,8 +1,4 @@
-#[derive(Debug)]
-struct Cartridge {
-    rom: u8, // TODO
-    ram: u8, // TODO
-}
+use crate::cartridge::Cartridge;
 
 const VRAM_SIZE: usize = 8 * 1024;
 const WRAM_SIZE: usize = 8 * 1024;
@@ -24,8 +20,8 @@ const IE: u16 = 0xFFFF;
 
 #[derive(Debug)]
 pub struct MMU {
-    cartridge: Cartridge,  // 0x0000 - 0x7FFF (Cartridge ROM)
-    vram: [u8; VRAM_SIZE], // 0x8000 - 0x9FFF
+    pub cartridge: Cartridge, // 0x0000 - 0x7FFF (Cartridge ROM)
+    vram: [u8; VRAM_SIZE],    // 0x8000 - 0x9FFF
     // 0xA000 - 0xBFFF (Cartridge RAM)
     wram: [u8; WRAM_SIZE], // 0xC000 - 0xDFFF
     // 0xE000 - 0xFDFF (Echo RAM)
@@ -38,7 +34,7 @@ pub struct MMU {
 impl MMU {
     pub fn new() -> Self {
         Self {
-            cartridge: Cartridge { rom: 0, ram: 0 },
+            cartridge: Cartridge::Empty,
             vram: [0; VRAM_SIZE],
             wram: [0; WRAM_SIZE],
             oam: [0; OAM_SIZE],
@@ -48,16 +44,20 @@ impl MMU {
         }
     }
 
+    pub fn load_cartridge(&mut self, cartridge: Cartridge) {
+        self.cartridge = cartridge
+    }
+
     pub fn read_byte(&self, address: u16) -> u8 {
         let bootrom_enabled = self.io[(0xFF50 - IO_START) as usize] == 0;
         if bootrom_enabled && address <= 0x00FF {
             return BOOTSTRAP_ROM[address as usize];
         } else if address < VRAM_START {
-            return self.cartridge.rom;
+            return self.cartridge.read_rom(address);
         } else if address >= VRAM_START && address < ERAM_START {
             return self.vram[(address - VRAM_START) as usize];
         } else if address >= ERAM_START && address < WRAM_BANK0_START {
-            return self.cartridge.ram;
+            return self.cartridge.read_ram(address - ERAM_START);
         } else if address >= WRAM_BANK0_START && address < ECHO_START {
             return self.wram[(address - WRAM_BANK0_START) as usize];
         } else if address >= ECHO_START && address < OAM_START {
@@ -87,7 +87,7 @@ impl MMU {
         } else if address >= VRAM_START && address < ERAM_START {
             return self.vram[(address - VRAM_START) as usize] = value;
         } else if address >= ERAM_START && address < WRAM_BANK0_START {
-            return self.cartridge.ram = value;
+            return self.cartridge.write(address - ERAM_START, value);
         } else if address >= WRAM_BANK0_START && address < ECHO_START {
             return self.wram[(address - WRAM_BANK0_START) as usize] = value;
         } else if address >= ECHO_START && address < OAM_START {

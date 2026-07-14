@@ -1,9 +1,12 @@
+mod cartridge;
 mod cpu;
 mod mmu;
 mod registers;
 
 use cpu::CPU;
 use raylib::prelude::*;
+
+use crate::cartridge::Cartridge;
 
 struct State {
     cpu: CPU,
@@ -36,7 +39,8 @@ fn main() {
         let screen_width = rl.get_screen_width();
         let screen_height = rl.get_screen_height();
 
-        manage_keys(&rl, &mut state);
+        handle_input(&rl, &mut state);
+        handle_drop(&rl, &mut state);
 
         if state.close {
             break;
@@ -44,10 +48,10 @@ fn main() {
         if state.restart {
             state = State::new();
         }
-        if state.cont && state.cpu.registers.pc >= 0x27 {
-            state.cont = false;
-        }
-        if state.next || state.cont {
+        // if state.cont && state.cpu.registers.pc >= 0x27 {
+        //     state.cont = false;
+        // }
+        if (state.next || state.cont) && has_loaded_cartridge(&state) {
             state.cpu.step();
         }
         state.next = false;
@@ -59,7 +63,26 @@ fn main() {
     }
 }
 
-fn manage_keys(rl: &RaylibHandle, state: &mut State) {
+fn has_loaded_cartridge(state: &State) -> bool {
+    !matches!(state.cpu.mmu.cartridge, Cartridge::Empty)
+}
+
+fn handle_drop(rl: &RaylibHandle, state: &mut State) {
+    if !rl.is_file_dropped() {
+        return;
+    }
+
+    let dropped_files = rl.load_dropped_files();
+
+    if dropped_files.count() > 1 {
+        return;
+    }
+
+    let cartridge = Cartridge::from_file(dropped_files.paths()[0]);
+    state.cpu.mmu.load_cartridge(cartridge);
+}
+
+fn handle_input(rl: &RaylibHandle, state: &mut State) {
     if rl.is_key_pressed(KeyboardKey::KEY_D) {
         state.debug = !state.debug;
     }
@@ -74,6 +97,10 @@ fn manage_keys(rl: &RaylibHandle, state: &mut State) {
     }
     if rl.is_key_pressed(KeyboardKey::KEY_Q) {
         state.close = true;
+    }
+    if rl.is_key_pressed(KeyboardKey::KEY_I) {
+        let cartridge = Cartridge::from_file("cpu_instrs.gb");
+        state.cpu.mmu.load_cartridge(cartridge);
     }
 }
 
@@ -188,6 +215,13 @@ fn draw_debug(mut d: RaylibDrawHandle, screen_width: i32, screen_height: i32, st
         290,
         20,
         Color::YELLOW,
+    );
+    d.draw_text(
+        format!("Cartridge: {:?}", has_loaded_cartridge(&state)).as_str(),
+        10,
+        310,
+        20,
+        Color::GREEN,
     );
 
     d.draw_fps(screen_width - 100, 10);
