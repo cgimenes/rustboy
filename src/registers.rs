@@ -247,4 +247,27 @@ impl Registers {
             WordRegister::PC => self.pc = value,
         };
     }
+
+    pub fn sub(&mut self, value: u8) -> u8 {
+        // FIX Set if carry from bit 3
+        if value & 0x0f == 0x0f {
+            self.set_flag(Flag::H);
+        }
+
+        // FIX Set if carry from bit 7
+        if value & 0xff == 0xff {
+            self.set_flag(Flag::C);
+        }
+
+        let result = self.a.wrapping_sub(value);
+
+        if result == 0 {
+            self.set_flag(Flag::Z);
+        } else {
+            self.clear_flag(Flag::Z);
+        }
+        self.set_flag(Flag::N);
+
+        return result;
+    }
 }
