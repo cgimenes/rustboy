@@ -14,9 +14,11 @@ Now, riding the current wave of Rust hype, I decided to finally finish this proj
 
 ## References
 
-In order of importance to this project:
-
 - https://gekkio.fi/files/gb-docs/gbctr.pdf
 - https://gbdev.gg8.se/wiki/articles/Gameboy_Bootstrap_ROM
 - https://www.youtube.com/watch?v=HyzD8pNlpwI
 - https://github.com/mpostaire/gbmulator
+- https://aselker.github.io/gameboy-sound-chip/
+- https://gbdev.io/pandocs
+- https://gbdev.gg8.se/wiki/articles/Sound_Controller
+- https://aselker.github.io/gameboy-sound-chip/
