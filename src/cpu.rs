@@ -182,6 +182,10 @@ impl CPU {
             0xE2 => self
                 .mmu
                 .write_word(0xff00 + self.registers.c as u16, self.registers.a as u16),
+            0xEA => {
+                let address = self.fetch_byte() as u16;
+                self.mmu.write_word(address, self.registers.a as u16);
+            }
             0xC1 => {
                 let data = self.pop_w();
                 self.registers.set_bc(data);
@@ -282,7 +286,7 @@ impl CPU {
             0x7C => self.bit(self.registers.h, 7),
             0x7D => self.bit(self.registers.l, 7),
             0x7F => self.bit(self.registers.a, 7),
-            _ => todo!("{:#x}", op),
+            _ => todo!("cb {:#x}", op),
         }
     }
 

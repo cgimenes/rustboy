@@ -51,10 +51,16 @@ fn main() {
         // if state.cont && state.cpu.registers.pc >= 0x27 {
         //     state.cont = false;
         // }
-        if (state.next || state.cont) && has_loaded_cartridge(&state) {
-            state.cpu.step();
+        if has_loaded_cartridge(&state) {
+            if state.cont {
+                for _ in 1..100 {
+                    state.cpu.step();
+                }
+            } else if state.next {
+                state.cpu.step();
+                state.next = false;
+            }
         }
-        state.next = false;
 
         let mut d = rl.begin_drawing(&thread);
         d.clear_background(Color::BLACK);
@@ -99,7 +105,7 @@ fn handle_input(rl: &RaylibHandle, state: &mut State) {
         state.close = true;
     }
     if rl.is_key_pressed(KeyboardKey::KEY_I) {
-        let cartridge = Cartridge::from_file("cpu_instrs.gb");
+        let cartridge = Cartridge::from_file("dmg-acid2.gb");
         state.cpu.mmu.load_cartridge(cartridge);
     }
 }
