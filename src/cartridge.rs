@@ -16,24 +16,24 @@ impl Cartridge {
         }
     }
 
-    pub fn read_rom(&self, address: u16) -> u8 {
+    pub fn read_rom(&self, address: u16) -> Result<u8, String> {
         match self {
-            Self::Empty => panic!(),
-            Self::Loaded { rom, ram: _ } => rom[address as usize],
+            Self::Empty => Err("empty cartridge".to_string()),
+            Self::Loaded { rom, ram: _ } => Ok(rom[address as usize]),
         }
     }
 
-    pub fn read_ram(&self, address: u16) -> u8 {
+    pub fn read_ram(&self, address: u16) -> Result<u8, String> {
         match self {
-            Self::Empty => panic!(),
-            Self::Loaded { rom: _, ram } => ram[address as usize],
+            Self::Empty => Err("empty cartridge".to_string()),
+            Self::Loaded { rom: _, ram } => Ok(ram[address as usize]),
         }
     }
 
-    pub fn write(&mut self, address: u16, value: u8) {
+    pub fn write(&mut self, address: u16, value: u8) -> Result<(), String> {
         match self {
-            Self::Empty => panic!(),
-            Self::Loaded { rom: _, ram } => ram[address as usize] = value,
+            Self::Empty => Err("empty cartridge".to_string()),
+            Self::Loaded { rom: _, ram } => Ok(ram[address as usize] = value),
         }
     }
 }

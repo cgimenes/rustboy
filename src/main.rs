@@ -48,18 +48,25 @@ fn main() {
         if state.restart {
             state = State::new();
         }
-        // if state.cont && state.cpu.registers.pc >= 0x27 {
-        //     state.cont = false;
-        // }
+        if state.cont && state.cpu.registers.pc >= 0xFF {
+            state.cont = false;
+            println!("Nope")
+        }
+        let mut result = Ok(());
         if has_loaded_cartridge(&state) {
             if state.cont {
                 for _ in 1..100 {
-                    state.cpu.step();
+                    result = state.cpu.step();
                 }
             } else if state.next {
-                state.cpu.step();
+                result = state.cpu.step();
                 state.next = false;
-            }
+            };
+        };
+
+        match result {
+            Err(e) => println!("{}", e),
+            _ => (),
         }
 
         let mut d = rl.begin_drawing(&thread);
@@ -216,7 +223,13 @@ fn draw_debug(mut d: RaylibDrawHandle, screen_width: i32, screen_height: i32, st
         Color::WHITE,
     );
     d.draw_text(
-        format!("OP: {:#x}", cpu.mmu.read_byte(cpu.registers.pc)).as_str(),
+        format!(
+            "OP: {:#x}",
+            cpu.mmu
+                .read_byte(cpu.registers.pc)
+                .expect("Should have returned PC")
+        )
+        .as_str(),
         10,
         290,
         20,

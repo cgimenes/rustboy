@@ -25,16 +25,16 @@ impl CPU {
         }
     }
 
-    fn fetch_byte(&mut self) -> u8 {
-        let b = self.mmu.read_byte(self.registers.pc);
+    fn fetch_byte(&mut self) -> Result<u8, String> {
+        let b = self.mmu.read_byte(self.registers.pc)?;
         self.registers.pc += 1;
-        return b;
+        Ok(b)
     }
 
-    fn fetch_word(&mut self) -> u16 {
-        let lo = self.fetch_byte() as u16;
-        let hi = self.fetch_byte() as u16;
-        return (hi << 8) | lo;
+    fn fetch_word(&mut self) -> Result<u16, String> {
+        let lo = self.fetch_byte()? as u16;
+        let hi = self.fetch_byte()? as u16;
+        Ok((hi << 8) | lo)
     }
 
     fn xor(&mut self, value: u8) {
@@ -53,62 +53,79 @@ impl CPU {
         }
     }
 
-    pub fn step(&mut self) {
-        let op = self.fetch_byte();
+    pub fn step(&mut self) -> Result<(), String> {
+        let op = self.fetch_byte()?;
 
         // TODO 0xF8 is signed!
         // TODO 0xE8 is signed!
         // TODO 0x18 is signed!
         match op {
+            // Rotate
             0x17 => self.registers.a = self.rotate(self.registers.a, false),
-            0x06 => self.registers.b = self.fetch_byte(),
-            0x0E => self.registers.c = self.fetch_byte(),
-            0x16 => self.registers.d = self.fetch_byte(),
-            0x1E => self.registers.e = self.fetch_byte(),
-            0x26 => self.registers.h = self.fetch_byte(),
-            0x2E => self.registers.l = self.fetch_byte(),
-            0x3E => self.registers.a = self.fetch_byte(),
-            0x20 => {
-                let offset = self.fetch_byte();
-                self.jrcc(Flag::Z, false, offset)
-            }
-            0x28 => {
-                let offset = self.fetch_byte();
-                self.jrcc(Flag::Z, true, offset)
-            }
-            0x30 => {
-                let offset = self.fetch_byte();
-                self.jrcc(Flag::C, false, offset)
-            }
-            0x38 => {
-                let offset = self.fetch_byte();
-                self.jrcc(Flag::C, true, offset)
-            }
+            // Loads
+            0x06 => self.registers.b = self.fetch_byte()?,
+            0x0E => self.registers.c = self.fetch_byte()?,
+            0x16 => self.registers.d = self.fetch_byte()?,
+            0x1E => self.registers.e = self.fetch_byte()?,
+            0x26 => self.registers.h = self.fetch_byte()?,
+            0x2E => self.registers.l = self.fetch_byte()?,
+            0x3E => self.registers.a = self.fetch_byte()?,
             0x01 => {
-                let word = self.fetch_word();
+                let word = self.fetch_word()?;
                 self.registers.set_bc(word);
             }
             0x11 => {
-                let word = self.fetch_word();
+                let word = self.fetch_word()?;
                 self.registers.set_de(word);
             }
             0x21 => {
-                let word = self.fetch_word();
+                let word = self.fetch_word()?;
                 self.registers.set_hl(word);
             }
-            0x31 => self.registers.sp = self.fetch_word(),
+            0x31 => self.registers.sp = self.fetch_word()?,
             0x22 => {
-                self.mmu.write_byte(self.registers.hl(), self.registers.a);
+                self.mmu.write_byte(self.registers.hl(), self.registers.a)?;
                 self.registers.inc_w(WordRegister::HL);
             }
             0x32 => {
-                self.mmu.write_byte(self.registers.hl(), self.registers.a);
+                self.mmu.write_byte(self.registers.hl(), self.registers.a)?;
                 self.registers.dec_w(WordRegister::HL);
             }
             0x1A => {
-                let value = self.mmu.read_byte(self.registers.de());
+                let value = self.mmu.read_byte(self.registers.de())?;
                 self.registers.a = value;
             }
+            0x40 => self.registers.b = self.registers.b,
+            0x50 => self.registers.d = self.registers.b,
+            0x60 => self.registers.h = self.registers.b,
+            0x70 => self.mmu.write_byte(self.registers.hl(), self.registers.b)?,
+            0x41 => self.registers.b = self.registers.c,
+            0x51 => self.registers.d = self.registers.c,
+            0x61 => self.registers.h = self.registers.c,
+            0x71 => self.mmu.write_byte(self.registers.hl(), self.registers.c)?,
+            0x42 => self.registers.b = self.registers.d,
+            0x52 => self.registers.d = self.registers.d,
+            0x62 => self.registers.h = self.registers.d,
+            0x72 => self.mmu.write_byte(self.registers.hl(), self.registers.d)?,
+            0x43 => self.registers.b = self.registers.e,
+            0x53 => self.registers.d = self.registers.e,
+            0x63 => self.registers.h = self.registers.e,
+            0x73 => self.mmu.write_byte(self.registers.hl(), self.registers.e)?,
+            0x44 => self.registers.b = self.registers.h,
+            0x54 => self.registers.d = self.registers.h,
+            0x64 => self.registers.h = self.registers.h,
+            0x74 => self.mmu.write_byte(self.registers.hl(), self.registers.h)?,
+            0x45 => self.registers.b = self.registers.l,
+            0x55 => self.registers.d = self.registers.l,
+            0x65 => self.registers.h = self.registers.l,
+            0x75 => self.mmu.write_byte(self.registers.hl(), self.registers.l)?,
+            0x46 => self.registers.b = self.mmu.read_byte(self.registers.hl())?,
+            0x56 => self.registers.d = self.mmu.read_byte(self.registers.hl())?,
+            0x66 => self.registers.h = self.mmu.read_byte(self.registers.hl())?,
+            0x47 => self.registers.b = self.registers.a,
+            0x57 => self.registers.d = self.registers.a,
+            0x67 => self.registers.h = self.registers.a,
+            0x77 => self.mmu.write_byte(self.registers.hl(), self.registers.a)?,
             0x48 => self.registers.c = self.registers.b,
             0x58 => self.registers.e = self.registers.b,
             0x68 => self.registers.l = self.registers.b,
@@ -125,47 +142,161 @@ impl CPU {
             0x5B => self.registers.e = self.registers.e,
             0x6B => self.registers.l = self.registers.e,
             0x7B => self.registers.a = self.registers.e,
+            0x4C => self.registers.c = self.registers.h,
+            0x5C => self.registers.e = self.registers.h,
+            0x6C => self.registers.l = self.registers.h,
+            0x7C => self.registers.a = self.registers.h,
             0x4D => self.registers.c = self.registers.l,
             0x5D => self.registers.e = self.registers.l,
             0x6D => self.registers.l = self.registers.l,
             0x7D => self.registers.a = self.registers.l,
+            0x4E => self.registers.c = self.mmu.read_byte(self.registers.hl())?,
+            0x5E => self.registers.e = self.mmu.read_byte(self.registers.hl())?,
+            0x6E => self.registers.l = self.mmu.read_byte(self.registers.hl())?,
+            0x7E => self.registers.a = self.mmu.read_byte(self.registers.hl())?,
             0x4F => self.registers.c = self.registers.a,
             0x5F => self.registers.e = self.registers.a,
             0x6F => self.registers.l = self.registers.a,
             0x7F => self.registers.a = self.registers.a,
-            0x77 => self.mmu.write_byte(self.registers.hl(), self.registers.a),
+            0x77 => self.mmu.write_byte(self.registers.hl(), self.registers.a)?,
+            0xE0 => {
+                let address = self.fetch_byte()? as u16;
+                self.mmu
+                    .write_word(0xff00 + address, self.registers.a as u16);
+            }
+            0xE2 => self
+                .mmu
+                .write_word(0xff00 + self.registers.c as u16, self.registers.a as u16)?,
+            0xEA => {
+                let address = self.fetch_byte()? as u16;
+                self.mmu.write_word(address, self.registers.a as u16);
+            }
+            0xF0 => {
+                let address = self.fetch_byte()? as u16;
+                self.registers.a = self.mmu.read_byte(0xff00 + address)?;
+            }
+            0xF2 => self.registers.a = self.mmu.read_byte(0xff00 + self.registers.c as u16)?,
+            0xFA => {
+                let address = self.fetch_word()? as u16;
+                self.registers.a = self.mmu.read_byte(address)?;
+            }
+            // Jumps
+            0x18 => {
+                let offset = self.fetch_byte()?;
+                self.registers.pc = self.registers.pc.wrapping_add_signed(offset as i8 as i16);
+            }
+            0x20 => {
+                let offset = self.fetch_byte()?;
+                self.jrcc(Flag::Z, false, offset)
+            }
+            0x28 => {
+                let offset = self.fetch_byte()?;
+                self.jrcc(Flag::Z, true, offset)
+            }
+            0x30 => {
+                let offset = self.fetch_byte()?;
+                self.jrcc(Flag::C, false, offset)
+            }
+            0x38 => {
+                let offset = self.fetch_byte()?;
+                self.jrcc(Flag::C, true, offset)
+            }
+            // INC
             0x04 => self.registers.inc_b(ByteRegister::B),
             0x14 => self.registers.inc_b(ByteRegister::D),
             0x24 => self.registers.inc_b(ByteRegister::H),
-            0x05 => self.registers.dec_b(ByteRegister::B),
-            0x15 => self.registers.dec_b(ByteRegister::D),
-            0x25 => self.registers.dec_b(ByteRegister::H),
             0x03 => self.registers.inc_w(WordRegister::BC),
             0x13 => self.registers.inc_w(WordRegister::DE),
             0x23 => self.registers.inc_w(WordRegister::HL),
             0x33 => self.registers.inc_w(WordRegister::SP),
-            0x0B => self.registers.dec_w(WordRegister::BC),
-            0x1B => self.registers.dec_w(WordRegister::DE),
-            0x2B => self.registers.dec_w(WordRegister::HL),
-            0x3B => self.registers.dec_w(WordRegister::SP),
             0x0C => self.registers.inc_b(ByteRegister::C),
             0x1C => self.registers.inc_b(ByteRegister::E),
             0x2C => self.registers.inc_b(ByteRegister::L),
             0x3C => self.registers.inc_b(ByteRegister::A),
+            // DEC
+            0x05 => self.registers.dec_b(ByteRegister::B),
+            0x15 => self.registers.dec_b(ByteRegister::D),
+            0x25 => self.registers.dec_b(ByteRegister::H),
+            0x0B => self.registers.dec_w(WordRegister::BC),
+            0x1B => self.registers.dec_w(WordRegister::DE),
+            0x2B => self.registers.dec_w(WordRegister::HL),
+            0x3B => self.registers.dec_w(WordRegister::SP),
             0x0D => self.registers.dec_b(ByteRegister::C),
             0x1D => self.registers.dec_b(ByteRegister::E),
             0x2D => self.registers.dec_b(ByteRegister::L),
             0x3D => self.registers.dec_b(ByteRegister::A),
+            // ADD/ADC
+            0x80 => self.registers.a = self.registers.add(self.registers.a, self.registers.b),
+            0x81 => self.registers.a = self.registers.add(self.registers.a, self.registers.c),
+            0x82 => self.registers.a = self.registers.add(self.registers.a, self.registers.d),
+            0x83 => self.registers.a = self.registers.add(self.registers.a, self.registers.e),
+            0x84 => self.registers.a = self.registers.add(self.registers.a, self.registers.h),
+            0x85 => self.registers.a = self.registers.add(self.registers.a, self.registers.l),
+            0x86 => todo!(),
+            0x87 => self.registers.a = self.registers.add(self.registers.a, self.registers.a),
+            0x88 => self.registers.a = self.registers.adc(self.registers.a, self.registers.b),
+            0x89 => self.registers.a = self.registers.adc(self.registers.a, self.registers.c),
+            0x8A => self.registers.a = self.registers.adc(self.registers.a, self.registers.d),
+            0x8B => self.registers.a = self.registers.adc(self.registers.a, self.registers.e),
+            0x8C => self.registers.a = self.registers.adc(self.registers.a, self.registers.h),
+            0x8D => self.registers.a = self.registers.adc(self.registers.a, self.registers.l),
+            0x8E => todo!(),
+            0x8F => self.registers.a = self.registers.adc(self.registers.a, self.registers.a),
+            0xE6 => {
+                let n = self.fetch_byte()?;
+                self.registers.a = self.registers.add(self.registers.a, n);
+            }
+            // SUB/SBC
+            0x90 => self.registers.a = self.registers.sub(self.registers.a, self.registers.b),
+            0x91 => self.registers.a = self.registers.sub(self.registers.a, self.registers.c),
+            0x92 => self.registers.a = self.registers.sub(self.registers.a, self.registers.d),
+            0x93 => self.registers.a = self.registers.sub(self.registers.a, self.registers.e),
+            0x94 => self.registers.a = self.registers.sub(self.registers.a, self.registers.h),
+            0x95 => self.registers.a = self.registers.sub(self.registers.a, self.registers.l),
+            0x96 => todo!(),
+            0x97 => self.registers.a = self.registers.sub(self.registers.a, self.registers.a),
+            0x98 => self.registers.a = self.registers.sbc(self.registers.a, self.registers.b),
+            0x99 => self.registers.a = self.registers.sbc(self.registers.a, self.registers.c),
+            0x9A => self.registers.a = self.registers.sbc(self.registers.a, self.registers.d),
+            0x9B => self.registers.a = self.registers.sbc(self.registers.a, self.registers.e),
+            0x9C => self.registers.a = self.registers.sbc(self.registers.a, self.registers.h),
+            0x9D => self.registers.a = self.registers.sbc(self.registers.a, self.registers.l),
+            0x9E => todo!(),
+            0x9F => self.registers.a = self.registers.adc(self.registers.a, self.registers.a),
+            0xD6 => {
+                let n = self.fetch_byte()?;
+                self.registers.a = self.registers.sub(self.registers.a, n);
+            }
+            // Stack: PUSH
             0xC5 => self.push_w(self.registers.bc()),
             0xCD => {
-                let address = self.fetch_word();
+                let address = self.fetch_word()?;
                 self.push_w(self.registers.pc);
                 self.registers.pc = address;
             }
+            // Stack: POP
             0xC9 => {
-                let address = self.pop_w();
+                let address = self.pop_w()?;
                 self.registers.pc = address;
             }
+            0xC1 => {
+                let data = self.pop_w()?;
+                self.registers.set_bc(data);
+            }
+            0xD1 => {
+                let data = self.pop_w()?;
+                self.registers.set_de(data);
+            }
+            0xE1 => {
+                let data = self.pop_w()?;
+                self.registers.set_hl(data);
+            }
+            0xF1 => {
+                let data = self.pop_w()?;
+                self.registers.set_af(data);
+            }
+            // AND
+            // XOR
             0xA8 => self.xor(self.registers.b),
             0xA9 => self.xor(self.registers.c),
             0xAA => self.xor(self.registers.d),
@@ -173,49 +304,23 @@ impl CPU {
             0xAC => self.xor(self.registers.h),
             0xAD => self.xor(self.registers.l),
             0xAF => self.xor(self.registers.a),
-            0xCB => self.cb(),
-            0xE0 => {
-                let address = self.fetch_byte() as u16;
-                self.mmu
-                    .write_word(0xff00 + address, self.registers.a as u16);
-            }
-            0xE2 => self
-                .mmu
-                .write_word(0xff00 + self.registers.c as u16, self.registers.a as u16),
-            0xEA => {
-                let address = self.fetch_byte() as u16;
-                self.mmu.write_word(address, self.registers.a as u16);
-            }
-            0xC1 => {
-                let data = self.pop_w();
-                self.registers.set_bc(data);
-            }
-            0xD1 => {
-                let data = self.pop_w();
-                self.registers.set_de(data);
-            }
-            0xE1 => {
-                let data = self.pop_w();
-                self.registers.set_hl(data);
-            }
-            0xF1 => {
-                let data = self.pop_w();
-                self.registers.set_af(data);
-            }
-            0xD6 => {
-                let n = self.fetch_byte();
-                self.registers.a = self.registers.sub(n);
-            }
+            // OR
+            // CP
+            // CB
+            0xCB => self.cb()?,
             0xFE => {
-                let n = self.fetch_byte();
-                self.registers.sub(n);
+                let n = self.fetch_byte()?;
+                self.registers.sub(self.registers.a, n);
+                // TODO check
             }
-            _ => todo!("{:#x}", op),
+            _ => todo!("op {:#x}", op),
         }
+
+        Ok(())
     }
 
-    fn cb(&mut self) {
-        let op = self.fetch_byte();
+    fn cb(&mut self) -> Result<(), String> {
+        let op = self.fetch_byte()?;
 
         match op {
             0x10 => self.registers.b = self.rotate(self.registers.b, true),
@@ -225,9 +330,9 @@ impl CPU {
             0x14 => self.registers.h = self.rotate(self.registers.h, true),
             0x15 => self.registers.l = self.rotate(self.registers.l, true),
             0x16 => {
-                let mut data = self.mmu.read_byte(self.registers.hl());
+                let mut data = self.mmu.read_byte(self.registers.hl())?;
                 data = self.rotate(data, true);
-                self.mmu.write_byte(self.registers.hl(), data);
+                self.mmu.write_byte(self.registers.hl(), data)?;
             }
             0x17 => self.registers.a = self.rotate(self.registers.a, true),
             0x40 => self.bit(self.registers.b, 0),
@@ -287,7 +392,9 @@ impl CPU {
             0x7D => self.bit(self.registers.l, 7),
             0x7F => self.bit(self.registers.a, 7),
             _ => todo!("cb {:#x}", op),
-        }
+        };
+
+        Ok(())
     }
 
     fn push_w(&mut self, value: u16) {
@@ -334,15 +441,15 @@ impl CPU {
         return result;
     }
 
-    fn pop_b(&mut self) -> u8 {
-        let value = self.mmu.read_byte(self.registers.sp);
+    fn pop_b(&mut self) -> Result<u8, String> {
+        let value = self.mmu.read_byte(self.registers.sp)?;
         self.registers.inc_w(WordRegister::SP);
-        return value;
+        Ok(value)
     }
 
-    fn pop_w(&mut self) -> u16 {
-        let lo = self.pop_b() as u16;
-        let hi = self.pop_b() as u16;
-        return (hi << 8) | lo;
+    fn pop_w(&mut self) -> Result<u16, String> {
+        let lo = self.pop_b()? as u16;
+        let hi = self.pop_b()? as u16;
+        Ok((hi << 8) | lo)
     }
 }

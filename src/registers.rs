@@ -131,41 +131,16 @@ impl Registers {
     }
 
     pub fn inc_b(&mut self, register: ByteRegister) {
-        let mut value = match register {
-            ByteRegister::A => self.a,
-            ByteRegister::F => self.f,
-            ByteRegister::B => self.b,
-            ByteRegister::C => self.c,
-            ByteRegister::D => self.d,
-            ByteRegister::E => self.e,
-            ByteRegister::H => self.h,
-            ByteRegister::L => self.l,
-        };
-
-        // Set if carry from bit 3
-        if value & 0x0f == 0x0f {
-            self.set_flag(Flag::H);
-        }
-
-        // Handles overflows
-        value = value.wrapping_add(1);
         match register {
-            ByteRegister::A => self.a = value,
-            ByteRegister::F => self.f = value,
-            ByteRegister::B => self.b = value,
-            ByteRegister::C => self.c = value,
-            ByteRegister::D => self.d = value,
-            ByteRegister::E => self.e = value,
-            ByteRegister::H => self.h = value,
-            ByteRegister::L => self.l = value,
+            ByteRegister::A => self.a = self.add(self.a, 1),
+            ByteRegister::F => self.f = self.add(self.f, 1),
+            ByteRegister::B => self.b = self.add(self.b, 1),
+            ByteRegister::C => self.c = self.add(self.c, 1),
+            ByteRegister::D => self.d = self.add(self.d, 1),
+            ByteRegister::E => self.e = self.add(self.e, 1),
+            ByteRegister::H => self.h = self.add(self.h, 1),
+            ByteRegister::L => self.l = self.add(self.l, 1),
         };
-
-        if value == 0 {
-            self.set_flag(Flag::Z);
-        } else {
-            self.clear_flag(Flag::Z);
-        }
-        self.clear_flag(Flag::N);
     }
 
     pub fn inc_w(&mut self, register: WordRegister) {
@@ -248,18 +223,59 @@ impl Registers {
         };
     }
 
-    pub fn sub(&mut self, value: u8) -> u8 {
-        // FIX Set if carry from bit 3
-        if value & 0x0f == 0x0f {
+    pub fn add(&mut self, a: u8, b: u8) -> u8 {
+        // Handles overflows
+        let result = a.wrapping_add(b);
+
+        if result == 0 {
+            self.set_flag(Flag::Z);
+        } else {
+            self.clear_flag(Flag::Z);
+        }
+        self.clear_flag(Flag::N);
+
+        // Set if carry from bit 3
+        if result & 0x0f == 0x0f {
             self.set_flag(Flag::H);
         }
 
-        // FIX Set if carry from bit 7
-        if value & 0xff == 0xff {
+        // Set if carry from bit 7
+        if result & 0xff == 0xff {
             self.set_flag(Flag::C);
         }
 
-        let result = self.a.wrapping_sub(value);
+        return result;
+    }
+
+    pub fn adc(&mut self, a: u8, b: u8) -> u8 {
+        // Handles overflows
+        let mut result = a.wrapping_add(b);
+        if self.get_flag(Flag::C) {
+            result = result.wrapping_add(1);
+        }
+
+        if result == 0 {
+            self.set_flag(Flag::Z);
+        } else {
+            self.clear_flag(Flag::Z);
+        }
+        self.clear_flag(Flag::N);
+
+        // Set if carry from bit 3
+        if result & 0x0f == 0x0f {
+            self.set_flag(Flag::H);
+        }
+
+        // Set if carry from bit 7
+        if result & 0xff == 0xff {
+            self.set_flag(Flag::C);
+        }
+
+        return result;
+    }
+
+    pub fn sub(&mut self, a: u8, b: u8) -> u8 {
+        let result = a.wrapping_sub(b);
 
         if result == 0 {
             self.set_flag(Flag::Z);
@@ -267,6 +283,42 @@ impl Registers {
             self.clear_flag(Flag::Z);
         }
         self.set_flag(Flag::N);
+
+        // FIX Set if carry from bit 3
+        if result & 0x0f == 0x0f {
+            self.set_flag(Flag::H);
+        }
+
+        // FIX Set if carry from bit 7
+        if result & 0xff == 0xff {
+            self.set_flag(Flag::C);
+        }
+
+        return result;
+    }
+
+    pub fn sbc(&mut self, a: u8, b: u8) -> u8 {
+        let mut result = a.wrapping_sub(b);
+        if self.get_flag(Flag::C) {
+            result = result.wrapping_sub(1);
+        }
+
+        if result == 0 {
+            self.set_flag(Flag::Z);
+        } else {
+            self.clear_flag(Flag::Z);
+        }
+        self.set_flag(Flag::N);
+
+        // FIX Set if carry from bit 3
+        if result & 0x0f == 0x0f {
+            self.set_flag(Flag::H);
+        }
+
+        // FIX Set if carry from bit 7
+        if result & 0xff == 0xff {
+            self.set_flag(Flag::C);
+        }
 
         return result;
     }

@@ -48,66 +48,67 @@ impl MMU {
         self.cartridge = cartridge
     }
 
-    pub fn read_byte(&self, address: u16) -> u8 {
+    pub fn read_byte(&self, address: u16) -> Result<u8, String> {
         let bootrom_enabled = self.io[(0xFF50 - IO_START) as usize] == 0;
         if bootrom_enabled && address <= 0x00FF {
-            return BOOTSTRAP_ROM[address as usize];
+            return Ok(BOOTSTRAP_ROM[address as usize]);
         } else if address < VRAM_START {
-            return self.cartridge.read_rom(address);
+            return Ok(self.cartridge.read_rom(address)?);
         } else if address >= VRAM_START && address < ERAM_START {
-            return self.vram[(address - VRAM_START) as usize];
+            return Ok(self.vram[(address - VRAM_START) as usize]);
         } else if address >= ERAM_START && address < WRAM_BANK0_START {
-            return self.cartridge.read_ram(address - ERAM_START);
+            return Ok(self.cartridge.read_ram(address - ERAM_START)?);
         } else if address >= WRAM_BANK0_START && address < ECHO_START {
-            return self.wram[(address - WRAM_BANK0_START) as usize];
+            return Ok(self.wram[(address - WRAM_BANK0_START) as usize]);
         } else if address >= ECHO_START && address < OAM_START {
-            return self.wram[(address - ECHO_START) as usize]; // TODO check echo ram
+            return Ok(self.wram[(address - ECHO_START) as usize]); // TODO check echo ram
         } else if address >= OAM_START && address < UNUSABLE_START {
-            return self.oam[(address - OAM_START) as usize];
+            return Ok(self.oam[(address - OAM_START) as usize]);
         } else if address >= IO_START && address < HRAM_START {
-            return self.io[(address - IO_START) as usize];
+            return Ok(self.io[(address - IO_START) as usize]);
         } else if address >= HRAM_START && address < IE {
-            return self.hram[(address - HRAM_START) as usize];
+            return Ok(self.hram[(address - HRAM_START) as usize]);
         } else if address == IE {
-            return self.ie;
+            return Ok(self.ie);
         } else {
-            panic!("invalid address: {:#x}", address)
+            return Err(format!("invalid address: {:#x}", address));
         }
     }
 
-    pub fn read_word(&self, address: u16) -> u16 {
-        let hi = self.read_byte(address) as u16;
-        let lo = self.read_byte(address + 1) as u16;
-        (hi << 8) | lo
+    pub fn read_word(&self, address: u16) -> Result<u16, String> {
+        let hi = self.read_byte(address)? as u16;
+        let lo = self.read_byte(address + 1)? as u16;
+        Ok((hi << 8) | lo)
     }
 
-    pub fn write_byte(&mut self, address: u16, value: u8) {
+    pub fn write_byte(&mut self, address: u16, value: u8) -> Result<(), String> {
         if address < VRAM_START {
-            panic!("writing to rom: {:#x}", address);
+            return Err(format!("writing to rom: {:#x}", address));
         } else if address >= VRAM_START && address < ERAM_START {
-            return self.vram[(address - VRAM_START) as usize] = value;
+            return Ok(self.vram[(address - VRAM_START) as usize] = value);
         } else if address >= ERAM_START && address < WRAM_BANK0_START {
             return self.cartridge.write(address - ERAM_START, value);
         } else if address >= WRAM_BANK0_START && address < ECHO_START {
-            return self.wram[(address - WRAM_BANK0_START) as usize] = value;
+            return Ok(self.wram[(address - WRAM_BANK0_START) as usize] = value);
         } else if address >= ECHO_START && address < OAM_START {
-            return self.wram[(address - ECHO_START) as usize] = value; // TODO check echo ram
+            return Ok(self.wram[(address - ECHO_START) as usize] = value); // TODO check echo ram
         } else if address >= OAM_START && address < UNUSABLE_START {
-            return self.oam[(address - OAM_START) as usize] = value;
+            return Ok(self.oam[(address - OAM_START) as usize] = value);
         } else if address >= IO_START && address < HRAM_START {
-            return self.io[(address - IO_START) as usize] = value;
+            return Ok(self.io[(address - IO_START) as usize] = value);
         } else if address >= HRAM_START && address < IE {
-            return self.hram[(address - HRAM_START) as usize] = value;
+            return Ok(self.hram[(address - HRAM_START) as usize] = value);
         } else if address == IE {
-            return self.ie = value;
+            return Ok(self.ie = value);
         } else {
-            panic!("invalid address: {:#x}", address)
+            return Err(format!("invalid address: {:#x}", address));
         }
     }
 
-    pub fn write_word(&mut self, address: u16, value: u16) {
-        self.write_byte(address, (value >> 8) as u8);
-        self.write_byte(address + 1, value as u8);
+    pub fn write_word(&mut self, address: u16, value: u16) -> Result<(), String> {
+        self.write_byte(address, (value >> 8) as u8)?;
+        self.write_byte(address + 1, value as u8)?;
+        Ok(())
     }
 }
 
