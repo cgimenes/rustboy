@@ -1,4 +1,5 @@
 use crate::mmu::MMU;
+use crate::ppu::PPU;
 use crate::registers::{ByteRegister, Flag, Registers, WordRegister};
 
 // TODO o nome correto é Timer ou Clock?
@@ -13,6 +14,7 @@ struct Timer {
 pub struct CPU {
     pub registers: Registers,
     pub mmu: MMU,
+    pub ppu: PPU,
     timer: Timer,
 }
 
@@ -20,6 +22,7 @@ impl CPU {
     pub fn new() -> Self {
         Self {
             registers: Registers::new(),
+            ppu: PPU::new(),
             mmu: MMU::new(),
             timer: Timer { m: 0, t: 0 },
         }

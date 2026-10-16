@@ -1,12 +1,13 @@
 mod cartridge;
 mod cpu;
 mod mmu;
+mod ppu;
 mod registers;
 
 use cpu::CPU;
-use raylib::prelude::*;
+use raylib::{ffi::CSSPalette, prelude::*};
 
-use crate::cartridge::Cartridge;
+use crate::{cartridge::Cartridge, ppu::Tile};
 
 struct State {
     cpu: CPU,
@@ -15,17 +16,19 @@ struct State {
     next: bool,
     close: bool,
     restart: bool,
+    tileset: bool,
 }
 
 impl State {
     fn new() -> Self {
         Self {
             cpu: CPU::new(),
-            debug: false,
+            debug: true,
             cont: false,
             next: false,
             close: false,
             restart: false,
+            tileset: true,
         }
     }
 }
@@ -50,7 +53,7 @@ fn main() {
         }
         if state.cont && state.cpu.registers.pc >= 0xFF {
             state.cont = false;
-            println!("Nope")
+            println!("Nope");
         }
         let mut result = Ok(());
         if has_loaded_cartridge(&state) {
@@ -114,6 +117,9 @@ fn handle_input(rl: &RaylibHandle, state: &mut State) {
     if rl.is_key_pressed(KeyboardKey::KEY_I) {
         let cartridge = Cartridge::from_file("dmg-acid2.gb");
         state.cpu.mmu.load_cartridge(cartridge);
+    }
+    if rl.is_key_pressed(KeyboardKey::KEY_T) {
+        state.tileset = !state.tileset;
     }
 }
 
@@ -236,12 +242,60 @@ fn draw_debug(mut d: RaylibDrawHandle, screen_width: i32, screen_height: i32, st
         Color::YELLOW,
     );
     d.draw_text(
-        format!("Cartridge: {:?}", has_loaded_cartridge(&state)).as_str(),
+        format!("Cont: {:?}", state.cont).as_str(),
         10,
         310,
         20,
         Color::GREEN,
     );
+    d.draw_text(
+        format!("Cartridge: {:?}", has_loaded_cartridge(&state)).as_str(),
+        10,
+        330,
+        20,
+        Color::GREEN,
+    );
 
     d.draw_fps(screen_width - 100, 10);
+    draw_tileset(d, state);
+}
+
+fn draw_tileset(mut d: RaylibDrawHandle, state: &State) {
+    if !state.tileset {
+        return;
+    }
+
+    let tiles = state
+        .cpu
+        .ppu
+        .get_tiles(&state.cpu.mmu)
+        .expect("Expected tiles");
+    let palettes = state
+        .cpu
+        .ppu
+        .get_palettes(&state.cpu.mmu)
+        .expect("Expected palettes");
+
+    let start = 10;
+
+    let mut i = 0;
+    for tile in tiles.iter() {
+        let x = 250 + 8 * (i % 16);
+        let y = 10 + (8 * (i / 16));
+
+        draw_tile(&mut d, tile, x, y);
+
+        i += 1;
+    }
+}
+
+fn draw_tile(d: &mut RaylibDrawHandle, tile: &Tile, x: i32, y: i32) {
+    let colors: [Color; 4] = [Color::WHITE, Color::GRAY, Color::DARKGRAY, Color::LIGHTGRAY];
+
+    let mut i = 0;
+    for pixel in tile.pixels.iter() {
+        let color = colors[*pixel as usize];
+        d.draw_pixel(x + (i % 8), y + (i / 8), color);
+        i += 1;
+    }
 }
